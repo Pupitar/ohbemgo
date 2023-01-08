@@ -269,7 +269,7 @@ func (o *Ohbem) CalculateTopRanks(maxRank int16, pokemonId int, form int, evolut
 			var lastRank []Ranking
 
 			processLevelCap := func(lvCap float64, setOnDup bool) {
-				lastStat := &Ranking{}
+				var lastStat *Ranking
 				combinations, sortedRanks := calculateRanksCompact(stats, leagueOptions.Cap, lvCap, ivFloor)
 
 				for i := 0; i < len(sortedRanks); i++ {
@@ -319,7 +319,7 @@ func (o *Ohbem) CalculateTopRanks(maxRank int16, pokemonId int, form int, evolut
 			maxed := false
 			for _, lvCap := range o.LevelCaps {
 				lvCapFloat := float64(lvCap)
-				if calculateCp(stats, 15, 15, 15, lvCapFloat) <= leagueOptions.Cap {
+				if !o.IncludeHundosUnderCap && calculateCp(stats, 15, 15, 15, lvCapFloat) <= leagueOptions.Cap {
 					continue
 				}
 				processLevelCap(lvCapFloat, false)

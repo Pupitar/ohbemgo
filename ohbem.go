@@ -190,14 +190,20 @@ func (o *Ohbem) CalculateAllRanks(stats PokemonStats, cpCap int) (map[int][16][1
 func (o *Ohbem) CalculateTopRanks(maxRank int16, pokemonId int, form int, evolution int, ivFloor int) (map[string][]Ranking, error) {
 	result := make(map[string][]Ranking)
 
+	var masterPokemon Pokemon
+	var masterForm Form
+	var masterEvolution PokemonStats
+	var stats PokemonStats
+
 	if err := safetyCheck(o); err != nil {
 		return result, err
 	}
 
-	masterPokemon := o.PokemonData.Pokemon[pokemonId]
-	var stats PokemonStats
-	var masterForm Form
-	var masterEvolution PokemonStats
+	if _, ok := o.PokemonData.Pokemon[pokemonId]; ok {
+		masterPokemon = o.PokemonData.Pokemon[pokemonId]
+	} else {
+		return result, ErrMissingPokemon
+	}
 
 	if masterPokemon.Attack == 0 {
 		return result, nil
@@ -207,10 +213,13 @@ func (o *Ohbem) CalculateTopRanks(maxRank int16, pokemonId int, form int, evolut
 		masterForm = masterPokemon.Forms[form]
 	} else {
 		masterForm = Form{
-			Attack:  masterPokemon.Attack,
-			Defense: masterPokemon.Defense,
-			Stamina: masterPokemon.Stamina,
-			Little:  masterPokemon.Little,
+			Attack:                    masterPokemon.Attack,
+			Defense:                   masterPokemon.Defense,
+			Stamina:                   masterPokemon.Stamina,
+			Little:                    masterPokemon.Little,
+			Evolutions:                masterPokemon.Evolutions,
+			TempEvolutions:            masterPokemon.TempEvolutions,
+			CostumeOverrideEvolutions: masterPokemon.CostumeOverrideEvolutions,
 		}
 	}
 
@@ -218,30 +227,34 @@ func (o *Ohbem) CalculateTopRanks(maxRank int16, pokemonId int, form int, evolut
 		masterEvolution = masterForm.TempEvolutions[evolution]
 	} else {
 		masterEvolution = PokemonStats{
-			Attack:  masterForm.Attack,
-			Defense: masterForm.Defense,
-			Stamina: masterForm.Stamina,
+			Attack:     masterForm.Attack,
+			Defense:    masterForm.Defense,
+			Stamina:    masterForm.Stamina,
+			Unreleased: false,
 		}
 	}
 
 	if masterEvolution.Attack != 0 {
 		stats = PokemonStats{
-			Attack:  masterEvolution.Attack,
-			Defense: masterEvolution.Defense,
-			Stamina: masterEvolution.Stamina,
+			Attack:     masterEvolution.Attack,
+			Defense:    masterEvolution.Defense,
+			Stamina:    masterEvolution.Stamina,
+			Unreleased: false,
 		}
 	} else {
 		if masterForm.Attack != 0 {
 			stats = PokemonStats{
-				Attack:  masterForm.Attack,
-				Defense: masterForm.Defense,
-				Stamina: masterForm.Stamina,
+				Attack:     masterForm.Attack,
+				Defense:    masterForm.Defense,
+				Stamina:    masterForm.Stamina,
+				Unreleased: false,
 			}
 		} else {
 			stats = PokemonStats{
-				Attack:  masterPokemon.Attack,
-				Defense: masterPokemon.Defense,
-				Stamina: masterPokemon.Stamina,
+				Attack:     masterPokemon.Attack,
+				Defense:    masterPokemon.Defense,
+				Stamina:    masterPokemon.Stamina,
+				Unreleased: false,
 			}
 		}
 	}

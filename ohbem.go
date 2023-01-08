@@ -260,75 +260,66 @@ func (o *Ohbem) CalculateTopRanks(maxRank int16, pokemonId int, form int, evolut
 	}
 
 	for leagueName, leagueOptions := range o.Leagues {
-		var rankings, lastRank []Ranking
-		var lastStat Ranking
+		var rankings []Ranking
 
-		processLevelCap := func(lvCap float64, setOnDup bool) {
-			combinations, sortedRanks := calculateRanksCompact(stats, leagueOptions.Cap, lvCap, ivFloor)
-
-			for i := 0; i < len(sortedRanks); i++ {
-				stat := &sortedRanks[i]
-				rank := combinations[stat.Index]
-				if rank > maxRank {
-					for len(lastRank) > i {
-						lastRank = lastRank[:len(lastRank)-1]
-					}
-					break
-				}
-				attack := stat.Index >> 8 % 16
-				defense := stat.Index >> 4 % 16
-				stamina := stat.Index % 16
-
-				if len(lastRank) > i {
-					lastStat = lastRank[i]
-				}
-
-				if lastStat.Value != 0 && stat.Level == lastStat.Level && rank == lastStat.Rank && attack == lastStat.Attack && defense == lastStat.Defense && stamina == lastStat.Stamina {
-					if setOnDup {
-						lastStat.Capped = true
-					}
-				} else if !setOnDup {
-					lastStat = Ranking{
-						Rank:       rank,
-						Attack:     attack,
-						Defense:    defense,
-						Stamina:    stamina,
-						Cap:        lvCap,
-						Value:      math.Floor(stat.Value),
-						Level:      stat.Level,
-						Cp:         stat.Cp,
-						Percentage: roundFloat(stat.Value/sortedRanks[0].Value, 5),
-					}
-					rankings = append(rankings, lastStat)
-				}
+		if leagueName != "master" {
+			if leagueOptions.LittleCupRules && !(masterForm.Little || masterPokemon.Little) {
+				continue
 			}
-		}
+			var lastRank []Ranking
 
-		if leagueOptions.LittleCupRules && !(masterForm.Little || masterPokemon.Little) {
-			continue
-		} else if leagueName == "master" {
-			for _, lvCap := range o.LevelCaps {
-				lvCapFloat := float64(lvCap)
-				maxHp := calculateHp(stats, 15, lvCapFloat)
-				for stamina := ivFloor; stamina < 15; stamina++ {
-					if calculateHp(stats, stamina, lvCapFloat) == maxHp {
+			processLevelCap := func(lvCap float64, setOnDup bool) {
+				lastStat := &Ranking{}
+				combinations, sortedRanks := calculateRanksCompact(stats, leagueOptions.Cap, lvCap, ivFloor)
+
+				for i := 0; i < len(sortedRanks); i++ {
+					stat := sortedRanks[i]
+					rank := combinations[stat.Index]
+					if rank > maxRank {
+						for len(lastRank) > i {
+							lastRank = lastRank[:len(lastRank)-1]
+						}
+						break
+					}
+					attack := (stat.Index >> 8) % 16
+					defense := (stat.Index >> 4) % 16
+					stamina := stat.Index % 16
+
+					if len(lastRank) > i {
+						lastStat = &lastRank[i]
+					} else {
+						lastStat = nil
+					}
+
+					if lastStat != nil && stat.Level == lastStat.Level && rank == lastStat.Rank && attack == lastStat.Attack && defense == lastStat.Defense && stamina == lastStat.Stamina {
+						if setOnDup {
+							lastStat.Capped = true
+						}
+					} else if !setOnDup {
 						entry := Ranking{
-							Attack:     15,
-							Defense:    15,
+							Rank:       rank,
+							Attack:     attack,
+							Defense:    defense,
 							Stamina:    stamina,
-							Level:      lvCapFloat,
-							Percentage: 1,
-							Rank:       1,
+							Cap:        lvCap,
+							Value:      math.Floor(stat.Value),
+							Level:      stat.Level,
+							Cp:         stat.Cp,
+							Percentage: roundFloat(stat.Value/sortedRanks[0].Value, 5),
 						}
 						rankings = append(rankings, entry)
+						if len(lastRank) > i {
+							lastRank[i] = entry
+						} else {
+							lastRank = append(lastRank, entry)
+						}
 					}
 				}
 			}
-		} else {
 			maxed := false
 			for _, lvCap := range o.LevelCaps {
 				lvCapFloat := float64(lvCap)
-				if !o.IncludeHundosUnderCap && calculateCp(stats, 15, 15, 15, lvCapFloat) <= leagueOptions.Cap {
+				if calculateCp(stats, 15, 15, 15, lvCapFloat) <= leagueOptions.Cap {
 					continue
 				}
 				processLevelCap(lvCapFloat, false)
@@ -336,12 +327,31 @@ func (o *Ohbem) CalculateTopRanks(maxRank int16, pokemonId int, form int, evolut
 					maxed = true
 					for ix := range lastRank {
 						lastRank[ix].Capped = true
+						rankings[ix].Capped = true
 					}
 					break
 				}
 			}
 			if len(rankings) != 0 && !maxed {
 				processLevelCap(MaxLevel, true)
+			}
+		} else {
+			for _, lvCap := range o.LevelCaps {
+				lvCapFloat := float64(lvCap)
+				maxHp := calculateHp(stats, 15, lvCapFloat)
+				for stamina := ivFloor; stamina < 15; stamina++ {
+					if calculateHp(stats, stamina, lvCapFloat) == maxHp {
+						entry := Ranking{
+							Rank:       1,
+							Attack:     15,
+							Defense:    15,
+							Stamina:    stamina,
+							Level:      lvCapFloat,
+							Percentage: 1,
+						}
+						rankings = append(rankings, entry)
+					}
+				}
 			}
 		}
 		if len(rankings) != 0 {
